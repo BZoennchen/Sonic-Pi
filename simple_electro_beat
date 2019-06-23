@@ -1,0 +1,95 @@
+
+#
+# Simple electro beat
+# Code by Benedikt Zönnchen
+#
+
+# disable debug message to improve performance
+use_debug false
+
+# 130 beats per minute
+use_bpm 130
+
+# array to control the amp over time such that it generates a fade in effect
+fadein = (ramp *range(0, 1, 0.05))
+
+# introduce some base rhythm
+live_loop :drum do
+  sample :tabla_dhec, rate: 3, amp: fadein.tick
+  sleep 1
+end
+
+live_loop :noise do
+  pattern = (spread 5, 8)
+  use_synth :pnoise
+  tick
+  
+  with_fx :rhpf, cutoff: 130, res: 0.5 do
+    if pattern.look then
+      play :d1, amp: 6 * fadein.look, attack: 0.05, decay: 0.08, release: 0.1
+    end
+  end
+  sleep 0.5
+end
+
+live_loop :bass do
+  use_synth :fm
+  play :d1, release: 1.5, amp: 2 * fadein.tick, divisor: 2, depth: 0.5
+  sleep 1
+end
+
+# for our chord progression we randomly select high or low chords by chance of 1/2
+schords_low = (ring
+               chord(:d2, :minor, num_octaves: 2),
+               chord(:d3, :minor, num_octaves: 2),
+               chord(:d3, :minor, num_octaves: 2),
+               chord(:c3, :minor, num_octaves: 2)
+               )
+
+schords_high = (ring
+                chord(:d2, :minor, num_octaves: 3),
+                chord(:d3, :minor, num_octaves: 3),
+                chord(:d3, :minor, num_octaves: 3),
+                chord(:c3, :minor, num_octaves: 3)
+                )
+
+#schords = [schords_low, schords_high]
+sphase = range(0.1, 0.2, 0.01).mirror
+
+
+live_loop :synth do
+  tick
+  pattern = spread(3, 8)
+  # randomly choose from low and high chords
+  schords = [schords_low, schords_high].choose
+  if pattern.look then
+    with_fx :reverb, damp: 0.9, room: 0.3, mix: 0.7 do
+      with_fx :distortion, mix: 0.5, distort: 0.2 do
+        with_synth :sine do
+          play_chord schords.look, amp: fadein.look * 0.35, attack: 0, sustain: 0, release: 0.3
+        end
+        with_synth :dsaw do
+          play_chord schords.look, amp: fadein.look * 0.35, attack: 0, sustain: 0, release: 0.3
+        end
+      end
+    end
+  end
+  sleep 0.5
+end
+
+live_loop :space do
+  tick
+  use_synth :bnoise
+  center = (ring 90, 100, 110 , 120).mirror
+  len = center.length
+  
+  with_fx :rbpf, centre: center.look, res: 0.9 do
+    play :d3, release: 0.7, amp: fadein.look
+  end
+  sleep 0.25
+  
+  if look % len == 0 then
+    sleep 2
+  end
+end
+
